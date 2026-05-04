@@ -12,6 +12,7 @@ The files are as follows:
 5. `plottinghelpers.py` contains functions to assist with generating the plots.
 6. `Plots.ipynb` is the jupyter notebook with the plots.
 7. `requirements.txt` is the list of python packages used.
+8. `hyperopt.py` carries out hyper-parameter optimization for kernel parameters using a GP-based Bayesian minimizer.
 
 The datasets used are all open sources and should be downloaded before running these scripts. 
 
