@@ -1,6 +1,10 @@
 import h5py
 import numpy as np
 from sklearn.utils import shuffle
+import qml
+from qml.representations import get_slatm_mbtypes
+from tqdm import tqdm
+
 
 path_to_h5file = '/home/vvinod/2025/BigDatasets/ANI1x/ANI-1x-release.h5'
 output_filename = 'ANI1x_multifidelity_50k_allfids.npz'
@@ -82,3 +86,34 @@ Z_final = Z[target_indices]
 E_final = {k: v[target_indices] for k, v in E_dict.items()}
 
 np.savez_compressed(output_filename, X=X_final, Z=Z_final, **E_final)
+
+
+
+###############################
+
+np.int = int
+data = np.load('ANI1x_multifidelity_50k.npz', allow_pickle=True)
+X_data = data['X'] 
+Z_data = data['Z']
+
+def generate_slatm_ani(X, Z):
+    compounds = []
+    
+    for i in tqdm(range(len(X)), desc='Initializing Compounds'):
+        mol = qml.Compound()
+        mol.coordinates = X[i]
+        mol.nuclear_charges = Z[i].astype(int)
+        compounds.append(mol)
+    
+    mbtypes = get_slatm_mbtypes(np.array([mol.nuclear_charges for mol in compounds], dtype=object))
+    #optionally save mbtypes array
+    # np.save('ANI1x_50k_mbtypes.npy', np.asarray(mbtypes,dtype=object), allow_pickle=True)
+
+    for mol in tqdm(compounds, desc='Generating SLATM Representations'):
+        mol.generate_slatm(mbtypes, local=False)
+    
+    X_slatm = np.array([mol.representation for mol in compounds])
+    np.save('ANI1x_50k_SLATM_features.npy', X_slatm)
+    
+    
+generate_slatm_ani(X_data, Z_data)
