@@ -184,7 +184,6 @@ def vib5_mfml_time_curve(molname='CH3Cl', scale=2, ax=None, legend=True, saturat
             return None, None
 
     if saturated:
-        # Load the three active learning strategies
         t_glob, m_glob = load_active_learning_curve('globalpass')
         t_casc, m_casc = load_active_learning_curve('cascading')
     
@@ -226,11 +225,9 @@ def get_qemfi_time_costs(seed=42):
     for i in range(135000):
         qemfi_time_costs[i, :] = np.copy(permolcost[int(idx_names[i]), :])
 
-    # EXACT matching splits to align with X_train
     costs_train, costs_test = train_test_split(qemfi_time_costs, train_size=0.9, random_state=seed)
     costs_train, costs_val = train_test_split(costs_train, train_size=0.85/0.9, random_state=seed)
     
-    # Return only the 4 fidelities (ignoring the first column) divided by 3600 to get HOURS
     return costs_train[:, 1:] / 3600.0
 
 def qemfi_mfml_time_curve(qemfi_time_cost, prop='EV', scale=2, ax=None, legend=True, saturated=True):
@@ -346,14 +343,9 @@ def ANI_index_returns(seed=42,center=True):
             y_test[:, i] -= fidelity_mean
             y_val[:, i] -= fidelity_mean
     
-    
     return ind_train, ind_test, ind_val, y_train,y_test, y_val, fidelity_mean, R_train,R_test, X_train,X_test
 
 def get_qemfi_time_costs(seed=42):
-    """
-    Reconstructs the time costs for the QeMFi training set, applying the 
-    exact same shuffling and double train_test_split as the data loader.
-    """
     idx = np.arange(0, 15000)
     idx = shuffle(idx, random_state=seed)
     
@@ -382,10 +374,6 @@ def get_qemfi_time_costs(seed=42):
 ###########################################
 
 def r_z_to_2d_image(R, Z, mae_mfml, mae_sfml, mae_ANI, save_path=None, net_charge=0):
-    """
-    Directly converts R and Z arrays into a clean 2D chemical drawing 
-    with both MFML and SFML MAE labels.
-    """
     R = np.asarray(R)
     Z = np.asarray(Z).flatten()
     num_atoms = len(Z)
@@ -416,9 +404,6 @@ def r_z_to_2d_image(R, Z, mae_mfml, mae_sfml, mae_ANI, save_path=None, net_charg
         
         legend_str = f"Adaptive Error: {mae_mfml:.2f} kcal/mol\nSF Error: {mae_sfml:.2f} kcal/mol\nANI Error: {mae_ANI:.2f} kcal/mol"
         
-        # Alternative Side-by-Side layout (Uncomment if RDKit clips the stacked text):
-        # legend_str = f"MFML MAE: {mae_mfml:.4f} kcal/mol  |  SFML MAE: {mae_sfml:.4f} kcal/mol"
-        
         img = Draw.MolToImage(
             mol, 
             size=(500, 500), 
@@ -437,88 +422,8 @@ def r_z_to_2d_image(R, Z, mae_mfml, mae_sfml, mae_ANI, save_path=None, net_charg
         print(f"Failed to process molecule: {e}")
         return None
 
-# def plot_ani_performance(y_true, y_pred, n_atoms, save_path=None):
-#     """
-#     Plots the performance of the ANI model.
-    
-#     Parameters:
-#     -----------
-#     y_true : array-like
-#         Ground truth reference energies.
-#     y_pred : array-like
-#         Model predicted energies.
-#     n_atoms : array-like
-#         Number of atoms for each molecule in the test set.
-#     save_path : str, optional
-#         If provided, saves the figure to this path (e.g., 'ani_results.png').
-#     """
-#     # Ensure inputs are numpy arrays for safe element-wise math
-#     y_true = np.asarray(y_true)
-#     y_pred = np.asarray(y_pred)
-#     n_atoms = np.asarray(n_atoms)
-    
-#     errors = y_pred - y_true
-#     mae = np.mean(np.abs(errors))
-#     rmse = np.sqrt(np.mean(errors**2))
-    
-#     sns.set_theme(style="ticks", context="paper", font_scale=1.2)
-    
-#     fig, axes = plt.subplots(1, 2, figsize=(9, 4))
-#     ax1 = axes[0]
-    
-#     scatter = ax1.scatter(y_true, y_pred, c=n_atoms, cmap='viridis', 
-#                           alpha=0.8, edgecolor='w', linewidth=0.3, s=40)
-    
-#     cbar = fig.colorbar(scatter, ax=ax1, pad=0.02)
-#     cbar.set_label('$N_{\mathrm{atoms}}$', rotation=270, labelpad=15)
-    
-#     min_val = min(np.min(y_true), np.min(y_pred))
-#     max_val = max(np.max(y_true), np.max(y_pred))
-    
-#     buffer = (max_val - min_val) * 0.05
-#     ax1.set_xlim(min_val - buffer, max_val + buffer)
-#     ax1.set_ylim(min_val - buffer, max_val + buffer)
-    
-#     ax1.plot([min_val - buffer, max_val + buffer], 
-#              [min_val - buffer, max_val + buffer], 
-#              color='black', linestyle='--', linewidth=1.5, zorder=0)
-    
-#     ax1.set_xlabel("Reference Energy [kcal/mol]")
-#     ax1.set_ylabel("Predicted Energy [kcal/mol]")
-#     ax1.grid(True, linestyle=':', alpha=0.6)
-
-#     #########################
-#     ax2 = axes[1]
-    
-#     sns.histplot(errors, kde=True, ax=ax2, color='#1f77b4', 
-#                  edgecolor='black', linewidth=0.5, alpha=0.6)
-    
-#     ax2.axvline(0, color='black', linestyle='--', linewidth=1.5)
-    
-#     stats_text = f"MAE: {mae:.4f}"
-#     ax2.text(0.65, 0.95, stats_text, transform=ax2.transAxes, 
-#              fontsize=11, verticalalignment='top', horizontalalignment='left',
-#              bbox=dict(boxstyle="round,pad=0.3", edgecolor='gray', facecolor='white', alpha=0.8)
-#             )
-    
-#     ax2.set_xlabel("Error (Predicted - Reference) [kcal/mol]")
-#     ax2.set_ylabel("Density / Count")
-#     ax2.grid(True, linestyle=':', alpha=0.6)
-#     ax2.set_xlim(-100,100)
-    
-#     plt.tight_layout()
-    
-#     if save_path:
-#         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-#         print(f"Plot saved successfully to {save_path}")
-        
-#     return fig
 
 def plot_ani_performance(y_true, y_pred, n_atoms, save_path=None, zoomlim=[50, 100]):
-    """
-    Plots the performance of the ANI model with a zoomed inset.
-    """
-    # Ensure inputs are numpy arrays for safe element-wise math
     y_true = np.asarray(y_true)
     y_pred = np.asarray(y_pred)
     n_atoms = np.asarray(n_atoms)
@@ -530,12 +435,7 @@ def plot_ani_performance(y_true, y_pred, n_atoms, save_path=None, zoomlim=[50, 1
     sns.set_theme(style="ticks", context="paper", font_scale=1.2)
     
     fig, axes = plt.subplots(1, 2, figsize=(9, 4))
-    
-    # ==========================================
-    # AXES 1: Parity Plot with Inset
-    # ==========================================
     ax1 = axes[0]
-    
     scatter = ax1.scatter(y_true, y_pred, c=n_atoms, cmap='viridis', 
                           alpha=0.8, edgecolor='w', linewidth=0.3, s=40)
     
@@ -553,31 +453,21 @@ def plot_ani_performance(y_true, y_pred, n_atoms, save_path=None, zoomlim=[50, 1
              [min_val - buffer, max_val + buffer], 
              color='black', linestyle='--', linewidth=1.5, zorder=0)
 
-    # ------------------------------------------
-    # ADDING THE INSET ZOOM
-    # ------------------------------------------
-    # Define inset coordinates: [x0, y0, width, height] as fractions of ax1
-    # [0.05, 0.55, 0.4, 0.4] puts it in the top-left. 
-    # Try [0.55, 0.05, 0.4, 0.4] if you want it in the bottom-right instead.
+    #inset
     axins = ax1.inset_axes([0.05, 0.55, 0.35, 0.35])
-    
-    # Re-plot the exact same scatter data and parity line on the inset
     axins.scatter(y_true, y_pred, c=n_atoms, cmap='viridis', 
-                  alpha=0.8, edgecolor='w', linewidth=0.3, s=15) # Smaller dot size (s=15) for clarity
+                  alpha=0.8, edgecolor='w', linewidth=0.3, s=15)
     
     axins.plot(zoomlim, zoomlim, color='black', linestyle=':', linewidth=1.5, zorder=0)
     
-    # Set the strict limits for the zoom window
-    # zoom_min, zoom_max = zoom, 100
+    #zoom window limits
     axins.set_xlim(zoomlim[0], zoomlim[1])
     axins.set_ylim(zoomlim[0], zoomlim[1])
     axins.grid(True, linestyle=':', alpha=0.6)
     axins.set_xticks([])
     axins.set_yticks([])
-    # Draw the connecting lines from the target area to the inset box
     ax1.indicate_inset_zoom(axins, edgecolor="black", alpha=0.8, linewidth=1.5)
-    # ------------------------------------------
-
+    
     ax1.set_xlabel("Reference Energy [kcal/mol]")
     ax1.set_ylabel("Predicted Energy [kcal/mol]")
     ax1.grid(True, linestyle=':', alpha=0.6)
@@ -603,7 +493,6 @@ def plot_ani_performance(y_true, y_pred, n_atoms, save_path=None, zoomlim=[50, 1
     
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Plot saved successfully to {save_path}")
         
     return fig
 
@@ -711,4 +600,3 @@ def plot_error_by_size(y_true, y_pred, n_atoms, save_path=None):
     return fig
 
 
-################################
