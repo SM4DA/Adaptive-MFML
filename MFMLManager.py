@@ -203,7 +203,7 @@ class MFMLExperimentManager:
                     moving_avg = np.mean(all_valmaes[-self.config.window:])
                     all_diffs.append(moving_avg)
                     
-                    # Compare the last two moving averages
+                    # Compare mae to moving average mae
                     if len(all_diffs) > 1:
                         value = np.abs(all_diffs[-1] - v_mae)
                         if value < self.config.local_tol[f]:
