@@ -315,7 +315,7 @@ def qemfi_mfml_time_curve(qemfi_time_cost, prop='EV', scale=2, ax=None, legend=T
 ##################################################
 
 def ANI_index_returns(seed=42,center=True):
-    X = np.load('/home/vvinod/2025/BigDatasets/ANI1x/ANI1x_50k_SLATM_features.npy')
+    X = np.load('ANI1x_50k_SLATM_features.npy')
     target_keys = [
         'ccsd(t)_cbs.energy',
         'wb97x_tz.energy', 'wb97x_dz.energy', 
@@ -323,7 +323,7 @@ def ANI_index_returns(seed=42,center=True):
     target_keys = np.asarray(target_keys)[::-1]
     energies = np.zeros((X.shape[0],target_keys.shape[0]),dtype=float)
     # del X
-    npzfile = np.load('/home/vvinod/2025/BigDatasets/ANI1x/ANI1x_multifidelity_50k_allfids.npz',allow_pickle=True)
+    npzfile = np.load('ANI1x_multifidelity_50k_allfids.npz',allow_pickle=True)
     R = npzfile['X']
     count = 0
     for fids in target_keys:

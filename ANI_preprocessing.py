@@ -6,17 +6,14 @@ from qml.representations import get_slatm_mbtypes
 from tqdm import tqdm
 
 
-path_to_h5file = '/home/vvinod/2025/BigDatasets/ANI1x/ANI-1x-release.h5'
+path_to_h5file = 'ANI-1x-release.h5'
 output_filename = 'ANI1x_multifidelity_50k_allfids.npz'
 num_samples = 50000
 seed = 42
 
 target_keys = [
     'wb97x_dz.energy', 'wb97x_tz.energy', 'ccsd(t)_cbs.energy',
-    'hf_dz.energy', 
-    #'hf_tz.energy', 'hf_qz.energy',
-    #'mp2_dz.corr_energy', 'mp2_tz.corr_energy', 'mp2_qz.corr_energy',
-    #'npno_ccsd(t)_dz.corr_energy', 'npno_ccsd(t)_tz.corr_energy', 'npno_ccsd(t)_qz.corr_energy'
+    'hf_dz.energy'
 ]
 
 def iter_data_buckets(h5filename, keys):
