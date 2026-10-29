@@ -1,0 +1,123 @@
+campaign: wb97xdz 
+
+campaign_config:
+  # overwrite function name
+  func_name: htrq.htrun.scripts.orca.sequential
+  # overwrite timeout
+  job_timeout: 14400  # 4h
+  # append to func args
+  args:
+    - name: pre1
+      # pre-convergence
+      route: | 
+        !wb97x 6-31G def2/j soscf rijcosx
+        %basis
+          addgto C
+           S 1
+            1 0.8 1.0
+           D 1
+            1 0.8 1.0
+          end
+          addgto N
+           S 1
+            1 0.8 1.0
+           D 1
+            1 0.8 1.0
+          end
+          addgto O
+           S 1
+            1 0.8 1.0
+           D 1
+            1 0.8 1.0
+          end
+          addgto S
+           S 1
+            1 0.65 1.0
+           D 1
+            1 0.65 1.0
+          end
+          addgto F
+           S 1
+            1 0.8 1.0
+           D 1
+            1 0.8 1.0
+          end
+          addgto Cl
+           S 1
+            1 0.75 1.0
+           D 1
+            1 0.75 1.0
+          end
+        end
+    - name: wb97xdz
+      prev_step_files:
+        orca.gbw: orca.gbw
+      route: |
+        !wb97x 6-31G scfconv6 soscf easyconv SCFConvForced engrad
+        %basis
+          addgto C
+           S 1
+            1 0.8 1.0
+           D 1
+            1 0.8 1.0
+          end
+          addgto N
+           S 1
+            1 0.8 1.0
+           D 1
+            1 0.8 1.0
+          end
+          addgto O
+           S 1
+            1 0.8 1.0
+           D 1
+            1 0.8 1.0
+          end
+          addgto S
+           S 1
+            1 0.65 1.0
+           D 1
+            1 0.65 1.0
+          end
+          addgto F
+           S 1
+            1 0.8 1.0
+           D 1
+            1 0.8 1.0
+          end
+          addgto Cl
+           S 1
+            1 0.75 1.0
+           D 1
+            1 0.75 1.0
+          end
+        end
+        %method
+          RadialGrid EulerMcLaurin
+          AngularGrid 4
+          HGridReduced false
+          RadialGrid_fin EulerMcLaurin
+          AngularGrid_fin 6
+          IntAcc_fin 7.0
+          HGridReduced_fin false
+        end
+      parsers:
+        stdout:
+          - htrq.htrun.parser.orca.total_energy
+          - htrq.htrun.parser.orca.gradient
+          - htrq.htrun.parser.orca.dipole
+      keep_files:
+        stdout: '{id}_wb97xdz.out'
+#        orca.gbw: '{id}_pbe0.gbw'
+  # extend func kwargs
+  kwargs:
+    mongo_output_key: wb97xdz
+
+submit:
+  query:
+    wb97xdz: null
+    failed.wb97xdz: null
+    charge: 0
+  projection: []
+  max_in_queue: -1  # do not limit number of submited jobs
+  queue: orca:high
