@@ -1,20 +1,134 @@
 # Adaptive-MFML
 
-Scripts for Adaptive sampling for MFML. Includes scripts for plotting and hyper-parameter optimization. Datasets used are open sourced and can be accessed at their respective repositories.  
-This code repository accompanies the preprint at [TBA].
+Code for adaptive, on-the-fly sampling in multifidelity machine learning
+(MFML) for quantum-chemical properties. The algorithm grows the training set at
+each fidelity until the validation error stops improving, instead of relying on
+a fixed scaling factor between fidelities.
 
-The files are as follows:
+This repository accompanies the manuscript *Improvise, Adapt, Overcome: An
+On-The-Fly Multifidelity Algorithm for Efficient Machine Learning*
+(V. Vinod and P. Zaspel). Preprint details: [TBA].
 
-1. `ANI_preprocessing.py` extracts ANI data, samples 50k random geometries along with their multifidelity energies. It also generates the SLATM descriptor for this dataset.
-2. `MFMLmanager.py` contains the main bulk of the sampling strategies. It performs training and prediction with the MFML model.
-3. `MFML_Model.py` is the script that runs the MFML scheme given a multifidelity training dataset.
-4. `basic_experiments.py` contains scripts to run single fidelity and basic MFML learning curves.
-5. `avg_experiments.py` runs the collection of different experiments from the manuscript. The appropriate line should be uncommented.
-6. `plottinghelpers.py` contains functions to assist with generating the plots.
-7. `Plots.ipynb` is the jupyter notebook with the plots.
-8. `requirements.txt` is the list of python packages used.
-9. `hyperopt.py` carries out hyper-parameter optimization for kernel parameters using a GP-based Bayesian minimizer.
-10. `dataloaders.py` is a helper function to load datasets.
+## Repository layout
 
-The datasets used are all open sources and should be downloaded before running these scripts. 
+```
+saturatedmfml/      library
+  dataset_paths.py      dataset/results path resolution
+  dataloaders.py        loading, splitting and centering of all datasets
+  MFML_Model.py         MFML / KRR model
+  MFMLManager.py        adaptive sampling strategies
+  plottinghelpers.py    plotting helpers
+  experiment_params.py  reads params.json
+experiments/        runnable experiment and study scripts
+preprocessing/      dataset preparation (ANI1x sampling + SLATM)
+analysis/           figure and report generation scripts
+ORCAscript/         ORCA input generators and timing workflows
+params.json         molecule-specific hyperparameters and experiment presets
+check_paths.py      dataset sanity check
+```
 
+## Requirements
+
+```bash
+pip install -r requirements.txt
+```
+
+The ORCA workflows additionally require an ORCA installation on `PATH`.
+
+## Data
+
+Datasets are read from a single root, `~/Datasets` by default:
+
+```
+~/Datasets/
+  VIB5/       <mol>_CM.npy, RAWDATA/<mol>_<fidelity>.dat
+  QeMFi/      QeMFi_<mol>.npz, Reps/<mol>_CM.npy
+  ANI1x/      ANI1x_50k_SLATM_features.npy, ANI1x_multifidelity_50k_allfids.npz,
+              ANI-1x-release.h5, {train,val,test}_set.npz, ...
+```
+
+`saturatedmfml/dataset_paths.py` resolves every path from that root. Override
+with environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `SATMFML_DATASETS` | `~/Datasets` | dataset root |
+| `SATMFML_QEMFI_REPS` | `$SATMFML_DATASETS/QeMFi/Reps` | QeMFi CM descriptors |
+| `SATMFML_RESULTS` | `<repo>/results` | experiment output root |
+
+Run `python check_paths.py` to verify that all required dataset files are
+present before starting a long job.
+
+The `*_indexes.npy` files used by some scripts are **not** shipped with the
+repository. They are generated automatically by `experiments/basic_experiments.py`,
+`experiments/avg_experiment.py` and `experiments/qemfi_experiments.py` when
+absent; run one of those first (or call `dataloaders.generate_indexes`) to
+create them.
+
+## Running
+
+Run scripts from the repository root:
+
+```bash
+python check_paths.py
+python experiments/basic_experiments.py
+python experiments/vib5_learningCurves.py
+python experiments/qemfi_experiments.py
+python experiments/avg_experiment.py
+python experiments/hyperopt.py
+```
+
+Outputs are written under `results/` (created on demand):
+
+```
+results/
+  single_pass/         single-run learning curves and predictions
+  averaged/            seed-averaged runs
+  threshold/           tolerance / validation-size sweeps
+  qemfi_per_molecule/  per-molecule QeMFi runs
+  hyperopt/            kernel hyperparameter search
+  validation_sweep/    validation-set-size sweeps
+  tolerance_grid/      local/global tolerance grids
+```
+
+Per-molecule regularisation and kernel width, tolerance presets and sweep
+grids are in `params.json`; edit that file rather than the scripts.
+
+## Experiment scripts
+
+| Script | Purpose |
+|---|---|
+| `experiments/basic_experiments.py` | single-fidelity and basic MFML learning curves |
+| `experiments/vib5_learningCurves.py` | VIB5 learning curves |
+| `experiments/averaging_learningCurves.py` | averaged VIB5 saturation runs |
+| `experiments/vib5_subsequentsaturation.py` | continued sampling past saturation |
+| `experiments/advanced_version.py` | global multi-pass and cascading saturation |
+| `experiments/QeMFi_learningCurves.py` | QeMFi (concatenated) learning curves |
+| `experiments/qemfi_experiments.py` | per-molecule QeMFi runs |
+| `experiments/avg_experiment.py` | validation-size / tolerance sweeps |
+| `experiments/predict_ANI.py` | final ANI predictions |
+| `experiments/hyperopt.py` | kernel hyperparameter optimisation |
+| `experiments/validation_sweep_all.py` | validation-set-size sweep, all datasets |
+| `experiments/tolerance_robustness.py` | local-tolerance / seed robustness |
+| `experiments/tolerance_grid_sweep.py` | 5x5 local/global tolerance grid |
+| `experiments/tolerance_bo_ch3cl.py` | cost-aware Bayesian optimisation smoke test |
+
+Figure/report scripts are in `analysis/`.
+
+## ORCA scripts
+
+`ORCAscript/` contains the input generators and workflows used to measure the
+per-fidelity time costs of ANI-1ccx:
+
+- `ani_hf.sh <geometry.xyz> <dz|tz|qz>` — HF/cc-pVXZ timing run
+- `ani_wb97xdz.sh <geometry.xyz>` — wB97X/6-31G* timing run
+- `ani_wb97xtz.sh <geometry.xyz>` — wB97X/def2-TZVPP timing run
+- `create_orca_inp.py` — expands the campaign YAML files
+  (`wb97xdz.yaml`, `ccsdt-nomp2grad.yaml`) into ORCA input files
+
+The timings are representative values from 20 molecules with 14 atoms, used as
+a per-fidelity cost proxy as described in the SI.
+
+## License
+
+See `LICENSE`.

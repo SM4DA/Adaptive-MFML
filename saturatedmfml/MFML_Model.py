@@ -20,7 +20,7 @@ class ModelMFML:
     '''
     def __init__(self, reg:float=1e-9, kernel:str='matern', sigma:float=715.0,
                  order:int=1, metric:str='l2', gammas:np.ndarray=None, 
-                 p_bar:bool=False):
+                 p_bar:bool=False, relative:bool=False):
         '''
         Initiation function for the ModelMFML class
 
@@ -77,6 +77,7 @@ class ModelMFML:
         self.predict_time = 0.0
         
         self.p_bar = p_bar
+        self.relative = relative
         
     def property_differences(fidelities=None):
         '''
@@ -812,7 +813,10 @@ class ModelMFML:
         
         #calculate MAE and RMSE if y_test given
         if not isinstance(y_test,type(None)):
-            self.mae = np.mean(np.abs(final_preds-y_test))
+            residuals = final_preds-y_test
+            if self.relative:
+                residuals = residuals/y_test
+            self.mae = np.mean(np.abs(residuals))
             self.rmse = np.sqrt(np.mean((final_preds-y_test)**2))
         
         return final_preds      

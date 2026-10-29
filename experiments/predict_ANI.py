@@ -1,9 +1,15 @@
-import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import numpy as np
 from qml.kernels import matern_kernel
 from qml.math import cho_solve
-from MFML_Model import ModelMFML
-from dataloaders import get_dataset
+from saturatedmfml.MFML_Model import ModelMFML
+from saturatedmfml.dataloaders import get_dataset
+from saturatedmfml.dataset_paths import RESULTS_AVERAGED, RESULTS_SINGLE_PASS, results_dir
+from saturatedmfml.experiment_params import get_hyperparams
 from sklearn.utils import shuffle
 
 def KRR_SF(nmax = 11):
@@ -17,12 +23,12 @@ def KRR_SF(nmax = 11):
     del X_test
     predictions = np.dot(alphas,K_test)
     
-    mae = np.mean(np.abs(predictions-y_test[:,-1]))
-    print(f"FINAL TEST MAE: {mae:.6f} kcal/mol")
+    mae = np.mean(np.abs((predictions-y_test[:,-1])/y_test[:,-1]))
+    print(f"FINAL TEST RMAE: {mae:.6f}")
     
     try:
-        os.makedirs('outputs/final_predictions', exist_ok=True)
-        np.save('outputs/final_predictions/ANI_SF_predictions.npy', predictions)
+        pred_dir = results_dir(RESULTS_SINGLE_PASS / 'final_predictions')
+        np.save(f'{pred_dir}/ANI_SF_predictions.npy', predictions)
     except AttributeError:
         print("something went wrong.")
 
@@ -35,8 +41,8 @@ def get_final_sizes(trainsizes_file):
         # Load the arrays for the first average run [:, 0]
         n_data = np.load(trainsizes_file)[50]#50 is where time is about 3hrs
     except FileNotFoundError:
-        raise FileNotFoundError(f"Could not find {trainsizes_file}. Check your path!")
-        n_data=np.asarray([32,16,8,4])
+        print(f"Could not find {trainsizes_file}; falling back to the default training sizes.")
+        n_data = np.asarray([32,16,8,4])
             
     return n_data
 
@@ -50,10 +56,9 @@ def generate_mfml_indexes(nfids, size):
     return indexes
 
 def train_and_predict_final_ani(strategy='cascading', prop='energy', seed=42):
-    reg = 2e-12
-    sigma = 8e4
+    reg, sigma = get_hyperparams('ANI', 'ANI')
     
-    file_path = f'outputs_avg/0_ANI_{strategy}_trainsizes.npy' 
+    file_path = f'{RESULTS_AVERAGED}/0_ANI_{strategy}_trainsizes.npy' 
     final_sizes = get_final_sizes(file_path)
     print(final_sizes)
     
@@ -81,8 +86,9 @@ def train_and_predict_final_ani(strategy='cascading', prop='energy', seed=42):
 
     mfml_indexes = generate_mfml_indexes(nfids, s)
 
-    model = ModelMFML(reg=reg, kernel='matern', 
-                      sigma=sigma, order=1, metric='l2', gammas=None, p_bar=True)
+    model = ModelMFML(reg=reg, kernel='matern',
+                      sigma=sigma, order=1, metric='l2', gammas=None,
+                      p_bar=True, relative=True)
                       
     model.train(X_train_parent=X_train_sub, fidelities=None, 
                 y_trains=energies, indexes=mfml_indexes, 
@@ -92,11 +98,11 @@ def train_and_predict_final_ani(strategy='cascading', prop='energy', seed=42):
     
     predictions=model.predict(X_test=X_test, y_test=y_test_target, optimiser='default')
     
-    print(f"FINAL TEST MAE: {model.mae:.6f} kcal/mol")
+    print(f"FINAL TEST RMAE: {model.mae:.6f}")
     
     try:
-        os.makedirs('outputs/final_predictions', exist_ok=True)
-        np.save(f'outputs/final_predictions/ANI_{strategy}_predictions.npy', predictions)
+        pred_dir = results_dir(RESULTS_SINGLE_PASS / 'final_predictions')
+        np.save(f'{pred_dir}/ANI_{strategy}_predictions.npy', predictions)
         
         
     except AttributeError:

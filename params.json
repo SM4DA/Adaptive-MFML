@@ -1,0 +1,60 @@
+{
+  "_comment": "Molecule-specific hyperparameters and experiment presets. Edit this file instead of the scripts. reg is the KRR Lavrentiev regularisation and sigma the Matern kernel width; per-fidelity tolerance lists run from the lowest fidelity upwards.",
+
+  "VIB5": {
+    "CH3Cl": {"reg": 6e-10, "sigma": 170.0},
+    "CH3F": {"reg": 5e-11, "sigma": 50.0}
+  },
+
+  "QeMFi": {
+    "EV": {"reg": 1e-14, "sigma": 1632.1941439039126},
+    "SCF": {"reg": 5.953896264004554e-10, "sigma": 169.4976823788475}
+  },
+
+  "ANI": {
+    "ANI": {"reg": 2e-12, "sigma": 80000.0}
+  },
+
+  "presets": {
+    "vib5_saturated": {
+      "local_tol": [1e-5, 1e-10, 1e-10, 1e-10],
+      "global_tol": [1e-5, 1e-5, 1e-5, 1e-5],
+      "batch_size": [256, 8, 4, 2],
+      "window": 1,
+      "maxiter": 50
+    },
+    "vib5_globalpass": {
+      "local_tol": [1e-5, 1e-10, 1e-10, 1e-10],
+      "global_tol": [1e-5, 1e-5, 1e-5, 1e-5],
+      "batch_size": [256, 8, 4, 2],
+      "initial_size": [13072, 128, 64, 32],
+      "window": 1,
+      "maxiter": 50,
+      "max_passes": 5
+    },
+    "vib5_threshold": {
+      "global_tol": [0.1, 0.1, 0.1, 0.1],
+      "local_tol": [1e-2, 1e-2, 1e-2, 1e-2],
+      "initial_size": [32, 16, 8, 4],
+      "batch_size": [32, 8, 4, 2],
+      "window": 10,
+      "maxiter": 100,
+      "max_passes": 20
+    },
+    "qemfi_multi_pass": {
+      "global_tol": [0.1, 0.1, 0.1, 0.1],
+      "local_tol": [0.1, 0.1, 0.1, 0.1],
+      "initial_size": [32, 16, 8, 4],
+      "batch_size": [32, 4, 2, 2],
+      "window": 5,
+      "maxiter": 100,
+      "max_passes": 20
+    }
+  },
+
+  "sweeps": {
+    "vib5_threshold_val_sizes": [4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048],
+    "vib5_threshold_global_tols": [0.05, 0.1, 0.25, 0.5, 0.75, 1.0, 2.0, 3.0, 5.0],
+    "vib5_threshold_local_tols": [0.1, 1, 1.5, 2, 5]
+  }
+}

@@ -4,7 +4,7 @@ from sklearn.utils import shuffle
 from dataclasses import dataclass, field
 from typing import List
 
-from MFML_Model import ModelMFML
+from .MFML_Model import ModelMFML
 from qml.math import cho_solve
 from qml.kernels import matern_kernel
 
@@ -16,18 +16,21 @@ class MFMLConfig:
     navg: int = 1
     
     window: int = 1
-    global_tol: float = 1e-5
     maxiter: int = 50
     max_passes: int = 5
-    
+
     local_tol: List[float] = field(default_factory=lambda: [1e-5, 1e-10, 1e-10, 1e-10])
+    global_tol: List[float] = field(default_factory=lambda: [1e-5, 1e-5, 1e-5, 1e-5])
     batch_size: List[int] = field(default_factory=lambda: [128, 8, 4, 2])
     initial_size: List[int] = field(default_factory=lambda: [16, 8, 4, 2])
-    
+
+    # Report relative (RMAE) instead of absolute MAE
+    relative: bool = False
+
     # Specific to Basic MFML and SF
     nmax_basic: int = 9
-    nmax_sf: int = 12,
-    seed:int=42
+    nmax_sf: int = 12
+    seed: int = 42
 
 
 class MFMLExperimentManager:
@@ -83,9 +86,9 @@ class MFMLExperimentManager:
         mfml_indexes = self._generate_indexes(size=start_size)
 
         # Build and train MFML model
-        self.model = ModelMFML(reg=self.config.reg, kernel='matern', 
-                          sigma=self.config.sigma, order=1, metric='l2', 
-                          gammas=None, p_bar=False)
+        self.model = ModelMFML(reg=self.config.reg, kernel='matern',
+                          sigma=self.config.sigma, order=1, metric='l2',
+                          gammas=None, p_bar=False, relative=self.config.relative)
                           
         self.model.train(X_train_parent=X_train_sub, fidelities=None, 
                     y_trains=energies, indexes=mfml_indexes, 
@@ -122,8 +125,11 @@ class MFMLExperimentManager:
                 k_test = matern_kernel(X_shuffled[:size], self.X_test, sigma=self.config.sigma, order=1, metric='l2')
                 alphas = cho_solve(k_train, y_shuffled[:size])
                 
-                preds_test = np.dot(alphas, k_test) 
-                maes.append(np.mean(np.abs(preds_test - self.y_test_target)))
+                preds_test = np.dot(alphas, k_test)
+                residuals = preds_test - self.y_test_target
+                if self.config.relative:
+                    residuals = residuals/self.y_test_target
+                maes.append(np.mean(np.abs(residuals)))
                 
             full_maes[:, n] = np.array(maes)
             
@@ -131,7 +137,7 @@ class MFMLExperimentManager:
 
     def basic_MFML(self):
         mfml_mae = np.zeros((self.config.navg, self.config.nmax_basic), dtype=float)
-        ns = np.zeros((self.config.nmax_basic,4), dtype=float)
+        ns = np.zeros((self.config.nmax_basic, self.nfids), dtype=float)
         scale_multipliers = [self.config.scale**(self.nfids - 1 - i) for i in range(self.nfids)]
         iterator1 = tqdm(range(self.config.navg), desc='Basic MFML Avg Loop')
         for n in iterator1:
@@ -144,8 +150,7 @@ class MFMLExperimentManager:
                 mfml_mae[n, i-1] = m
                 ns[i-1,:] = s
                 iterator2.set_postfix({'Training Sizes':f'{s}','Test MAE':f'{m:.4f}'})
-        np.save('mfmlsize.npy',ns)
-        return mfml_mae
+        return mfml_mae, ns
 
     def saturated_MFML(self,start_size=None,f_start:int=0,f_end:int=None, seed:int=0):
         nfids = self.nfids
@@ -179,6 +184,7 @@ class MFMLExperimentManager:
             
             all_diffs.append(v_mae)
             
+            message = 'MaxIter'
             iterator2 = tqdm(range(self.config.maxiter), desc=f'Saturating at fidelity {f}', leave=False)
             for i in iterator2:
                 if f > 0:
@@ -259,8 +265,6 @@ class MFMLExperimentManager:
         self._train(start_size=current_start_size,seed=self.config.seed) 
         last_global_mae,_ = self._evaluate(mode='val')
 
-        count = 0
-        max_run = 0
         with tqdm(desc='Ceiling-Adaptive MFML', leave=True) as pbar:
             while f_end <= self.nfids:
                 #saturate from f_start to f_end
@@ -304,9 +308,6 @@ class MFMLExperimentManager:
         self._train(start_size=current_start_size,seed=self.config.seed) 
         last_global_mae,_ = self._evaluate(mode='val')
 
-        count = 0
-        max_run = 0
-        
         count = 0
         with tqdm(desc='Ceiling-Adaptive MFML', leave=True) as pbar:
             while True:

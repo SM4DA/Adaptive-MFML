@@ -1,24 +1,24 @@
-import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import numpy as np
 
-from MFMLManager import MFMLConfig, MFMLExperimentManager
-from dataloaders import get_dataset
+from saturatedmfml.MFMLManager import MFMLConfig, MFMLExperimentManager
+from saturatedmfml.dataloaders import generate_indexes, get_dataset
+from saturatedmfml.dataset_paths import RESULTS_SINGLE_PASS, results_dir
+from saturatedmfml.experiment_params import get_hyperparams
 
-def generate_indexes(nfids=4,size=1000):
-    
-    indexes = np.zeros((nfids),dtype=object)
-    
-    ordered_ind = np.arange(0,size)
-    patched_ind = np.vstack([ordered_ind,ordered_ind]).T
-    for i in range(nfids):
-        indexes[i] = np.copy(patched_ind)
-    return indexes
-
-def main(source='VIB5', name='CH3Cl', reg=1e-1, 
-         sigma=170.0, global_tol=[1e-3], window=5, 
+def main(source='VIB5', name='CH3Cl', reg=None, sigma=None,
+         global_tol=[1e-3], window=5, 
          local_tol=[1e-4, 1e-4, 1e-3, 1e-2], 
          initial_size=[64, 32, 16, 8], batch_size=[128,8,4,2], 
          seed:int = 42):
+    if reg is None or sigma is None:
+        reg, sigma = get_hyperparams(source.upper() if source.upper() != 'QEMFI' else 'QeMFi', name)
+    out = results_dir(RESULTS_SINGLE_PASS)
+
     # Initial Config
     config = MFMLConfig(
         reg=reg,
@@ -34,7 +34,8 @@ def main(source='VIB5', name='CH3Cl', reg=1e-1,
         initial_size=initial_size,#[16, 8, 4, 2], 
         nmax_basic=9, 
         nmax_sf=11,
-        seed=seed
+        seed=seed,
+        relative=True
     )
 
     #Load Data
@@ -64,17 +65,13 @@ def main(source='VIB5', name='CH3Cl', reg=1e-1,
 
     # #single fidelity
     sf_mae = manager.sf_LC()
-    np.save(f'outputs/{name}_sf_mae.npy', sf_mae)
+    np.save(f'{out}/{name}_sf_mae.npy', sf_mae)
     
     # #Basic MFML
-    basic_mae = manager.basic_MFML()
-    np.save(f'outputs/{name}_{config.scale}_basic_mfml.npy', basic_mae)
+    basic_mae, basic_sizes = manager.basic_MFML()
+    np.save(f'{out}/{name}_{config.scale}_basic_mfml.npy', basic_mae)
+    np.save(f'{out}/{name}_{config.scale}_basic_mfml_sizes.npy', basic_sizes)
     
 
 if __name__=='__main__':
-    os.makedirs('outputs', exist_ok=True)
-    main(source='VIB5', name='CH3Cl', reg=6e-10, sigma=170.0)
-    main(source='VIB5', name='CH3F', reg=5e-11, sigma=50.0)
-    main(source='QEMFI', name='SCF', reg=6e-10, sigma=70.0)
-    main(source='QEMFI', name='EV', reg=1e-14, sigma=1600.0)
-    main(source='ANI',name='ANI', reg=2e-12, sigma=8e4)
+    main(source='ANI', name='ANI')

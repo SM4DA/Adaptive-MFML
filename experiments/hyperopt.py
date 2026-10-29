@@ -1,91 +1,22 @@
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import numpy as np
 from sklearn.model_selection import KFold
 from skopt import gp_minimize
-from skopt.space import Real, Categorical, Integer
+from skopt.space import Real, Categorical
 from scipy.interpolate import griddata
 from skopt.utils import use_named_args
-from sklearn.utils import shuffle
 import qml.kernels as kernels
 from qml.math import cho_solve
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from skopt.callbacks import DeltaXStopper, DeltaYStopper
-import pandas as pd
-from sklearn.model_selection import train_test_split
-import csv
 
-def partition_QeMFi_data(prop='EV',seed=42,center=True):
-    molnames = ['urea','acrolein','alanine','sma','nitrophenol',
-                'urocanic','dmabn','thymine','o-hbdi']
-    idx = np.arange(0,15000)
-    idx = shuffle(idx,random_state=seed)
-    X = np.load('/home/vvinod/2024/QeMFi/MFML/Reps/o-hbdi_CM.npy')
-    #largest SLATM is for o-hbdi with 6438 features.
-    X=np.zeros((135000,X.shape[1]),dtype=float)  
-    #Rest will be padded to this size.
-    energies = np.zeros((135000,5),dtype=float)
-    
-    start=0
-    end=15000
-    idx_names = np.zeros((135000),dtype=float)
-    for i,m in enumerate(molnames):
-        names = np.full(15000,i)
-        idx_names[start:end] = np.copy(names)
-        temp_X = np.load(f'/home/vvinod/2024/QeMFi/MFML/Reps//{m}_CM.npy')
-        X[start:end,:temp_X.shape[-1]] = temp_X[idx,:]
-        if prop=='EV':
-            temp_data=np.load(f'/home/vvinod/2024/QeMFi/dataset/QeMFi_{m}.npz')['EV'][:,:,0]*0.0029
-        elif prop=='SCF':
-            temp_data=np.load(f'/home/vvinod/2024/QeMFi/dataset/QeMFi_{m}.npz')['SCF']*630
-        energies[start:end,:] = temp_data[idx,:]
-        
-        #increment for next molecule
-        start+= 15000
-        end += 15000
-    
-    ####
-    X_train, X_test, y_train, y_test = train_test_split(X, energies, 
-                                                        train_size=0.9, random_state=seed)
-    X_train,X_val,y_train,y_val = train_test_split(X_train, y_train,
-                                                   train_size=0.85/0.9, random_state=seed)
-
-    del energies, X
-    if center==True:
-        for i in range(5):
-            hello_mean_here = np.mean(y_train[i])
-            y_train[:,i] = y_train[:,i] - hello_mean_here
-            y_test[:,i] = y_test[:,i] - hello_mean_here
-            y_val[:,i] = y_val[:,i] - hello_mean_here
-    print(f"X_train: {X_train.shape}, y_train: {y_train.shape}")
-    print(f"X_val:   {X_val.shape}, y_val:   {y_val.shape}")
-    print(f"X_test:  {X_test.shape}, y_test:  {y_test.shape}")
-    return X_train,X_val,X_test,y_train,y_val,y_test
-
-def partition_VIB5_data(molname='CH3Cl',seed=42,center=True):
-    X = np.load(f'/home/vvinod/2025/BigDatasets/VIB5/{molname}_CM.npy')
-    energies = np.zeros((X.shape[0],4),dtype=float)
-    fids = ['CCSD-T','HF-QZ','HF-TZ','MP2']
-    for i in range(4):
-        energies[:,i] = np.loadtxt(f'/home/vvinod/2025/BigDatasets/VIB5/RAWDATA/{molname}_{fids[i]}.dat')
-
-    X_train, X_test, y_train, y_test = train_test_split(X,energies,train_size=0.9,random_state=seed)
-    X_train,X_val,y_train,y_val = train_test_split(X_train,y_train,train_size=0.85/0.9,random_state=seed)
-    # print(y_train.shape,y_test.shape,y_val.shape)
-
-    del energies, X
-    if center==True:
-        for i in range(4):
-            hello_mean_here = np.mean(y_train[i])
-            y_train[:,i] = y_train[:,i] - hello_mean_here
-            y_test[:,i] = y_test[:,i] - hello_mean_here
-            y_val[:,i] = y_val[:,i] - hello_mean_here
-    ####
-    print(f"X_train: {X_train.shape}, y_train: {y_train.shape}")
-    print(f"X_val:   {X_val.shape}, y_val:   {y_val.shape}")
-    print(f"X_test:  {X_test.shape}, y_test:  {y_test.shape}")
-    return X_train,X_val,X_test,y_train,y_val,y_test
-
-
+from saturatedmfml.dataloaders import partition_QeMFi_data
+from saturatedmfml.dataset_paths import RESULTS_HYPEROPT, results_dir
 
 ###define global vars here
 k_fold = 5 #number of cross vals to perform
@@ -205,7 +136,8 @@ global_tqdm_bar.close()
 results = {'hyperparameters': res_gp.x,
                    'mae': res_gp.fun}
 
-np.save('QeMFi_SCF_opt.npy',results)
+out = results_dir(RESULTS_HYPEROPT)
+np.save(f'{out}/QeMFi_SCF_opt.npy',results)
 
 
 
@@ -280,4 +212,4 @@ def plot_hyperparam_contour(output,num_grid_points=100,path='hyperopt.png'):
 
 
 plot_hyperparam_contour(res_gp,num_grid_points=300,
-                            path='QeMFi_SCF_opt_find.png')
+                            path=f'{out}/QeMFi_SCF_opt_find.png')
